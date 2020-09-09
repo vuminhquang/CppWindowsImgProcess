@@ -136,8 +136,8 @@ namespace CppCLRWinformsProjekt {
 
 		}
 #pragma endregion
-	private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e);
-
-	private: std::string ToUnmanagedString(String^ string);
+	private:
+		System::Void button1_Click(System::Object^ sender, System::EventArgs^ e);
+		std::string ToUnmanagedString(String^ string);
 };
 }
