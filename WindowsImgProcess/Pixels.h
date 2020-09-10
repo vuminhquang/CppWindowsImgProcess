@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <opencv2/imgproc.hpp>
 
 namespace CppCLRWinformsProjekt
 {

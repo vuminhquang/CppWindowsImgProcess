@@ -1,3 +1,4 @@
+
 #include "pch.h"
 #include "ProcessingUnit.h"
 #include <opencv2/core/mat.hpp>
@@ -5,7 +6,7 @@
 
 using namespace CppCLRWinformsProjekt;
 
-void ProcessingUnit::LoopPixels(cv::Mat& img)//--> Rename: ColorTransfer
+void ProcessingUnit::LoopPixels(cv::Mat& img, double yVal, double rVal)//--> Rename: ColorTransfer
 {
 	// Accept only char type matrices
 	CV_Assert(img.depth() == CV_8U);
@@ -29,21 +30,39 @@ void ProcessingUnit::LoopPixels(cv::Mat& img)//--> Rename: ColorTransfer
 			cv::MatIterator_<Pixel> it, end;
 			for (it = img.begin<Pixel>(), end = img.end<Pixel>(); it != end; ++it)
 			{
-				auto& r = (*it)[2];
-				auto& g = (*it)[1];
-				auto& b = (*it)[0];
+				// convert to doubles
+				double r = (*it)[2] * 1.0;
+				double g = (*it)[1] * 1.0;
+				double b = (*it)[0] * 1.0;
+				
+				rescale(r,g,b,1.0/255);
+		        rgb2lcc(r,g,b);
+		        lcc2orgb(r,g,b);
+		        
+				// shifting colors
+				g = g + yVal;
+				b = b + rVal;
 
-				// Color transfer
-				// Modify r, g, b values
-				// E.g. r = 255; g = 0; b = 0;
-				auto rgb_point = to_RGB_point(p);
-		        auto lcc_point = RGB_to_LCC(rgb_point);
-		        auto orgb_point = LCC_to_ORGB(lcc_point);
-		        orgb_point = mean_shift(orgb_point, shift_val);
-		        auto inverted_lcc_point = ORGB_to_LCC(orgb_point);
-		        auto inverted_rgb_point = LCC_to_RGB(inverted_lcc_point);
-		        auto inverted_pixel = to_Pixel(inverted_rgb_point); 
-		        p = inverted_pixel;
+				// clamping
+				r = std::min(1.0, std::max(0.0, r));
+				g = std::min(1.0, std::max(-1.0, g));
+				b = std::min(1.0, std::max(-1.0, b));
+
+		        orgb2lcc(r,g,b);
+		        lcc2rgb(r,g,b);
+
+				r = std::min(1.0, std::max(0.0, r));
+				g = std::min(1.0, std::max(0.0, g));
+				b = std::min(1.0, std::max(0.0, b));
+
+				//0->255
+				rescale(r,g,b,255); 
+
+				// reapply
+				(*it)[2] = std::round(r);
+				(*it)[1] = std::round(g);
+				(*it)[0] = std::round(b);
+
 			}
 			break;
 		}
@@ -52,19 +71,83 @@ void ProcessingUnit::LoopPixels(cv::Mat& img)//--> Rename: ColorTransfer
 	}
 }
 
-LCCPixel* ProcessingUnit::RGBToLCC(RGBPixel& rgb)
+void ProcessingUnit::rescale(double& r, double& g, double& b, double rate) 
 {
-	const auto lcc = new LCCPixel();
-	lcc->l  = 0.299 * rgb.r + 0.5870*rgb.g + 0.1140 * rgb.b;
-    lcc->c1 = 0.5   * rgb.r + 0.5   *rgb.g - 1      * rgb.b;
-    lcc->c2 = 0.866 * rgb.r - 0.866 *rgb.g;// +0.0* rgb.b;
-	return lcc;
+	r = r * rate;
+	g = g * rate;
+	b = b * rate;
 }
 
-
-ORGBPixel* ProcessingUnit::LCCToORGB(LCCPixel& rgb)
+void ProcessingUnit::rgb2lcc(double& r, double& g, double& b)
 {
-	const auto orgb = new ORGBPixel();
+	double _r = 0.299*r + 0.5870*g + 0.114*b;
+	double _g = 0.5*r + 0.5*g - b;
+	double _b = 0.866*r - 0.866*g;
 
-	return orgb;
+	r = _r; 
+	g = _g;
+	b = _b;
+}
+
+void ProcessingUnit::lcc2rgb(double& l, double& c1, double& c2)
+{
+	double _l = l + 0.114*c1 + 0.7436*c2;
+	double _c1 = l + 0.114*c1 - 0.4111*c2;
+	double _c2 = l - 0.886*c1 + 0.1663*c2;
+	
+	// clamping
+	_l = std::min(1.0, std::max(0.0, l));
+	_c1 = std::min(1.0, std::max(-1.0, c1));
+	_c2 = std::min(1.0, std::max(-1.0, c2));
+
+	l = _l;
+	c1 = _c1;
+	c2 = _c2;
+}
+
+void ProcessingUnit::lcc2orgb(double& l, double& c1, double& c2)
+{	
+	if (c2 == 0 && c1 == 0) return;
+
+	double theta = atan2(c2, c1);
+	double theta0 = 1.5 * theta;
+	if ((theta >= CV_PI/3) && (theta <= CV_PI))
+	{
+		theta0 = 0.75*theta + CV_PI*0.25;
+	}
+	else if ((theta >= -CV_PI) && (theta <= -CV_PI/3)) 
+	{
+		theta0 = 0.75*theta - CV_PI*0.25;
+	}
+
+	double angle = theta0 - theta;
+	double Cyb = c1 * std::cos(angle) - c2 * std::sin(angle);
+	double Crg = c1 * std::sin(angle) + c2 * std::cos(angle);
+
+	c1 = Cyb;
+	c2 = Crg;
+}
+
+void ProcessingUnit::orgb2lcc(double& r, double& g, double& b)
+{
+	if ((g == 0) && (b == 0)) return;
+
+	double theta = atan2(b, g);
+	double theta0 = theta*2.0/3;
+	if ((theta >= CV_PI/2) && (theta <= CV_PI))
+	{
+		theta0 = 4.0/3*theta - CV_PI/3;
+	}
+	else if ((theta >= -CV_PI) && (theta <= -CV_PI/2)) 
+	{
+		theta0 = 4.0/3*theta + CV_PI/3;
+	}
+
+	double angle = theta0 - theta;
+	double _c1 = g * std::cos(angle) - b * std::sin(angle);
+	double _c2 = g * std::sin(angle) + b * std::cos(angle);
+
+	// clamp
+	g = std::min(1.0, std::max(-1.0, _c1));
+	b = std::min(1.0, std::max(-1.0, _c2));
 }
