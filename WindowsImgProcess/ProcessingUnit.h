@@ -1,7 +1,5 @@
 #pragma once
-#include <opencv2/core/types.hpp>
-
-#include "Pixels.h"
+#include <opencv2/imgproc.hpp>
 
 namespace CppCLRWinformsProjekt
 {
@@ -16,16 +14,6 @@ namespace CppCLRWinformsProjekt
 		void orgb2lcc(double& r, double& g, double& b);
 	};
 }
-
-
-
-// struct Operator {
-//     void operator ()(Pixel &pixel, const int * position) const 
-//     {           
-//           
-//     }
-// };
-
 
 
 

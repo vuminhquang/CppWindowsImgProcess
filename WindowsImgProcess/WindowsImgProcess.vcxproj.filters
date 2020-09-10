@@ -32,9 +32,6 @@
     <ClInclude Include="ProcessingUnit.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Pixels.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CppCLR_WinformsProjekt.cpp">
