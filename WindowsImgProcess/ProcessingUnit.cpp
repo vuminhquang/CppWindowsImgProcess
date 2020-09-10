@@ -5,10 +5,7 @@
 
 using namespace CppCLRWinformsProjekt;
 
-
-
-
-void ProcessingUnit::LoopPixels(cv::Mat& img)
+void ProcessingUnit::LoopPixels(cv::Mat& img)//--> Rename: ColorTransfer
 {
 	// Accept only char type matrices
 	CV_Assert(img.depth() == CV_8U);
@@ -35,8 +32,18 @@ void ProcessingUnit::LoopPixels(cv::Mat& img)
 				auto& r = (*it)[2];
 				auto& g = (*it)[1];
 				auto& b = (*it)[0];
+
+				// Color transfer
 				// Modify r, g, b values
 				// E.g. r = 255; g = 0; b = 0;
+				auto rgb_point = to_RGB_point(p);
+		        auto lcc_point = RGB_to_LCC(rgb_point);
+		        auto orgb_point = LCC_to_ORGB(lcc_point);
+		        orgb_point = mean_shift(orgb_point, shift_val);
+		        auto inverted_lcc_point = ORGB_to_LCC(orgb_point);
+		        auto inverted_rgb_point = LCC_to_RGB(inverted_lcc_point);
+		        auto inverted_pixel = to_Pixel(inverted_rgb_point); 
+		        p = inverted_pixel;
 			}
 			break;
 		}
